@@ -30,7 +30,7 @@ services:
     build: process/.
     hostname: process
     environment:
-      DELAY: 0.1
+      DELAY: ${DELAY}
     volumes:
       - ./app:/app
     entrypoint: ["/bin/bash", "-c", "/app/run.sh"]

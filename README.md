@@ -52,7 +52,7 @@ The `players` table has 10 players for each team. Each playerhas a name, jersey 
 
 ## The Challenge to you.
 
-### Part 1: The Game Stream's real-time box score
+### Part 1: The game stream's real-time box score
 
 Preferrably as events occur, you should write a `boxscore.json` to the `s3/boxscores` S3 bucket. Sidearm web developers can read the file's contents to render a webpage for live box score for the game while the game is going on.
 
@@ -80,48 +80,33 @@ The JSON file should have the following structure (consider this an example)
 }
 ```
 
+NOTES:
 
+- `"status"` should be `"winning", "losing" or "tied"` based on the current `home.score` and `away.score`
+- Every player on the roster (in the players table) should appear in the box score.
 
-This file is a stream of events that occur during the game.  The events are separated by newlines.  Each event is separaed b a comma separated list of values.  The first value is the event type, the second is the timestamp, and the third is the player id.  The event types are:
+### Part 2: Updating stats in the datbaase when the game is over
 
+After the game is complete, the table data in the database should be updated, based on the final box score. Specifically:
+- update the win/loss record for each team
+- update the shots and goals for each player
 
-The task (solution.py)
+### controlling the game stream
 
-- write a script to run every X seconds
-- watch the s3/gamestreams directory for new files
-- when a new gameid.csv arrives in s3/gamestreams
-- add a row to the games table, calculating the home/away scores
-- create boxscore gameid.json is s3/boxscores
-  structure should be:
-    gameid: 1234
-    home: {
-        teamid: 1,
-        score: 16,
-        status: winning
-        players: [
-            {playerid: 1, shots: 10, points 15, pct: 0.67},
-            {playerid: 2, shots: 5, points 1, pct: 0.20},
-            ...
-        ]
-    },
-    away: {
-        teamid: 2,
-        score: 6,
-        status: losing
-        players: [
-            {playerid: 1, shots: 10, points 5, pct: 0.50},
-            {playerid: 2, shots: 8, points 1, pct: 0.125},
-            ...
-        ]
-    }
+The game stream can be managed with `docker-compose` commands.
 
-- write the boxscore.json with the same gameid as the feed in real time from the feed and the
-    reference data in the database.
+**Stop the game stream:**
+`$ docker-compose stop gamestream`
 
-- do not edit any existing tables or the data therein
+**View gamesteam activity**
+`$ docker-compose logs gamestream`
 
-### TO RESTART THE GAME STREAM / RESET THE DATABASE
+**Start the game stream:**
+`$ docker-compose start gamestream`
 
-Every time you execute this command, the database tables are game stream is reset back to the beginning of the game. Anything you write to `s3/boxscores` will remain.
+NOTE: Every time you execute this command:
+- the database tables are reset back to their original state.
+- the live game stream located at `s3/gamestreams/gamestream.txt` restarts.
+- Anything you write to `s3/boxscores` will remain.
 
-`docker-compose run gamestream`
+Also when the game stream ends naturally, you may
