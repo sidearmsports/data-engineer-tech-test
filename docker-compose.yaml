@@ -1,0 +1,43 @@
+version: "3.7"
+
+services:
+  mssql:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    cap_add: [ 'SYS_PTRACE' ]
+    environment:
+      ACCEPT_EULA: 1
+      MSSQL_SA_PASSWORD: ${PASSWORD}
+    ports:
+      - "1433:1433"
+    hostname: mssql
+    # volumes:
+    #   - "mssql-azuresql-edge-data:/var/opt/mssql"
+
+  s3:
+    image: minio/minio:latest
+    hostname: s3
+    command: server /data --console-address ":9001"
+    ports:
+    - "9000:9000"
+    - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: sidearm
+      MINIO_ROOT_PASSWORD: ${PASSWORD}
+    # volumes:
+    #   - minio-data:/data 
+
+  gamestream:
+    build: process/.
+    hostname: process
+    environment:
+      DELAY: 0.1
+    volumes:
+      - ./app:/app
+    entrypoint: ["/bin/bash", "-c", "/app/run.sh"]
+    depends_on:
+      - mssql
+      - s3
+
+# volumes:
+#   mssql-azuresql-edge-data:
+#   minio-data:

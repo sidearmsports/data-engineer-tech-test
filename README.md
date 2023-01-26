@@ -1,92 +1,127 @@
-# sidearm-data-engineer
+
+# Sidearm Techical Assessment For Data Engineers
 
 
+## The Problem
 
-## Getting started
+The goal is to create a data pipeline that processes a simplified, in game stream from a simulated a lacrosse game.
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+### Game Stream 
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+While the game is going on, there is a file called `gamestream.txt` located in the  `s3/gamestreams` S3 bucket. Each time an in-game event happens, it is appended to this file.
+To simplify things, thee game stream only reports shots on goal. Here is the format of the file each line is an event and the fields are separated by a space:
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/mafudge/sidearm-data-engineer.git
-git branch -M main
-git push -uf origin main
+0 59:51 101 2 0
+1 57:06 101 6 0
+2 56:13 205 8 1
+3 55:25 101 4 0
 ```
 
-## Integrate with your tools
+- The first column is the event ID. These are sequential. An event ID of -1 means the game is over.
+- The second column is the timestamp of the event in the format `mm:ss`. For example the first event occured 9 seconds into the game.
+- the next column is the team ID, which team took the shot on goal. In the simulation there are only two teams, 101 and 205.
+- the next colum is the jersey number of the player who took the shot.
+- the final column is a 1 if the shot was a goal, 0 if it was a miss.
 
-- [ ] [Set up project integrations](https://gitlab.com/mafudge/sidearm-data-engineer/-/settings/integrations)
+## Player and Team Reference Data
 
-## Collaborate with your team
+The player and team reference data is stored in a Microsoft SQL Server database.  The database is called `sidearmdb` . The database has two tables, `players` and `teams` with the following schema:
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+```sql
+CREATE TABLE teams (
+    id int primary key NOT NULL,
+    name VARCHAR(50) NOT NULL,
+    conference VARCHAR(50) NOT NULL,
+    wins INT NOT NULL,
+    losses INT NOT NULL,
+)
 
-## Test and Deploy
+CREATE TABLE players (
+    id int  primary key NOT NULL,
+    name VARCHAR(50) NOT NULL,
+    number varchar(3) NOT NULL,
+    shots INT NOT NULL,
+    goals INT NOT NULL,
+    teamid INT foreign key references teams(id) NOT NULL,
+)
+```
 
-Use the built-in continuous integration in GitLab.
+The `teams` table, has two teams, `101 = syracuse` and `205 = johns hopkins`.  Each team has a conference affiliation, and  current win / loss record.
+The `players` table has 10 players for each team. Each playerhas a name, jersey number, shots taken, goals scored, along with their team id.
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+## The Challenge to you.
 
-***
+### Part 1: The Game Stream's real-time box score
 
-# Editing this README
+Preferrably as events occur, you should write a `boxscore.json` to the `s3/boxscores` S3 bucket. Sidearm web developers can read the file's contents to render a webpage for live box score for the game while the game is going on.
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
+For simplicy, assume team `101` is the home team and team `205` is the away team.  
 
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+The JSON file should have the following structure (consider this an example)
 
-## Name
-Choose a self-explaining name for your project.
+```json
+{
+    "home": {
+        "teamid" : 105,
+        "conference" : "ACC",
+        "wins" : 5,
+        "losses" : 2,
+        "score" : 3,
+        "status" : "winning",
+        "players": [
+            {"id": 1, "name" : "sam",  "shots" : 3, "goals" : 1, "pct" : 0.33 },
+            {"id": 2, "name" : "sarah",  "shots" : 0, "goals" : 0, "pct" : 0.00 },
+            {"id": 3, "name" : "steve",  "shots" : 1, "goals" : 1, "pct" : 1.00 },
+            ...
+        ]
+    },
+    "away": { ... }
+}
+```
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+This file is a stream of events that occur during the game.  The events are separated by newlines.  Each event is separaed b a comma separated list of values.  The first value is the event type, the second is the timestamp, and the third is the player id.  The event types are:
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+The task (solution.py)
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+- write a script to run every X seconds
+- watch the s3/gamestreams directory for new files
+- when a new gameid.csv arrives in s3/gamestreams
+- add a row to the games table, calculating the home/away scores
+- create boxscore gameid.json is s3/boxscores
+  structure should be:
+    gameid: 1234
+    home: {
+        teamid: 1,
+        score: 16,
+        status: winning
+        players: [
+            {playerid: 1, shots: 10, points 15, pct: 0.67},
+            {playerid: 2, shots: 5, points 1, pct: 0.20},
+            ...
+        ]
+    },
+    away: {
+        teamid: 2,
+        score: 6,
+        status: losing
+        players: [
+            {playerid: 1, shots: 10, points 5, pct: 0.50},
+            {playerid: 2, shots: 8, points 1, pct: 0.125},
+            ...
+        ]
+    }
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+- write the boxscore.json with the same gameid as the feed in real time from the feed and the
+    reference data in the database.
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+- do not edit any existing tables or the data therein
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+### TO RESTART THE GAME STREAM / RESET THE DATABASE
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+Every time you execute this command, the database tables are game stream is reset back to the beginning of the game. Anything you write to `s3/boxscores` will remain.
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+`docker-compose run gamestream`
