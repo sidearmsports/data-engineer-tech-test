@@ -1,7 +1,6 @@
 
 # Sidearm Techical Assessment For Data Engineers
 
-
 ## The Problem
 
 The goal is to create a data pipeline that processes a simplified, in game stream from a simulated a lacrosse game.
@@ -9,7 +8,7 @@ The goal is to create a data pipeline that processes a simplified, in game strea
 ### Game Stream 
 
 While the game is going on, there is a file called `gamestream.txt` located in the  `s3/gamestreams` S3 bucket. Each time an in-game event happens, it is appended to this file.
-To simplify things, thee game stream only reports shots on goal. Here is the format of the file each line is an event and the fields are separated by a space:
+To simplify things, the game stream only reports shots on goal. Here is the format of the file each line is an event and the fields are separated by a space:
 
 ```
 0 59:51 101 2 0
@@ -19,14 +18,14 @@ To simplify things, thee game stream only reports shots on goal. Here is the for
 ```
 
 - The first column is the event ID. These are sequential. An event ID of -1 means the game is over.
-- The second column is the timestamp of the event in the format `mm:ss`. For example the first event occured 9 seconds into the game.
-- the next column is the team ID, which team took the shot on goal. In the simulation there are only two teams, 101 and 205.
-- the next colum is the jersey number of the player who took the shot.
-- the final column is a 1 if the shot was a goal, 0 if it was a miss.
+- The second column is the timestamp of the event in the format `mm:ss`. This counts down to 00:00. For example the first event occured 9 seconds into the game.
+- The third column is the team ID, indicating team took the shot on goal. In the simulation there are only two teams, `101` and `205`.
+- the fourth colum is the jersey number of the player who took the shot.
+- the final column is a `1` if the shot was a goal, `0` if it was a miss.
 
-## Player and Team Reference Data
+### Player and Team Reference Data
 
-The player and team reference data is stored in a Microsoft SQL Server database.  The database is called `sidearmdb` . The database has two tables, `players` and `teams` with the following schema:
+The player and team reference data is stored in a Microsoft SQL Server database.  The database is called `sidearmdb` . The database has two tables, `players` and `teams` with the following schemas, respectively:
 
 ```sql
 CREATE TABLE teams (
@@ -47,14 +46,20 @@ CREATE TABLE players (
 )
 ```
 
-The `teams` table, has two teams, `101 = syracuse` and `205 = johns hopkins`.  Each team has a conference affiliation, and  current win / loss record.
-The `players` table has 10 players for each team. Each playerhas a name, jersey number, shots taken, goals scored, along with their team id.
+The `teams` table, has two teams, `101 = syracuse` and `205 = johns hopkins`.  Each team has a conference affiliation, and a current win / loss record.
 
-## The Challenge to you.
+The `players` table has 10 players for each team. Each player has a name, jersey number, shots taken, goals scored, along with their team id.
+
+## Your Challenge
+
+As the data engineer you have two tasks:
+
+1. Transforming the game stream and reference data into a real-time box score
+2. Updating the database tables when the game is over.
 
 ### Part 1: The game stream's real-time box score
 
-Preferrably as events occur, you should write a `boxscore.json` to the `s3/boxscores` S3 bucket. Sidearm web developers can read the file's contents to render a webpage for live box score for the game while the game is going on.
+Preferrably as events occur, you should write a `boxscore.json` to the `s3/boxscores` S3 bucket. That way sidearm web developers can read the file's contents to render a webpage for live box score stats while the game is going on.
 
 For simplicy, assume team `101` is the home team and team `205` is the away team.  
 
@@ -84,29 +89,26 @@ NOTES:
 
 - `"status"` should be `"winning", "losing" or "tied"` based on the current `home.score` and `away.score`
 - Every player on the roster (in the players table) should appear in the box score.
+- Calculate the `pct` field so this does not need to happen on the client side.
 
 ### Part 2: Updating stats in the datbaase when the game is over
 
 After the game is complete, the table data in the database should be updated, based on the final box score. Specifically:
-- update the win/loss record for each team
-- update the shots and goals for each player
+- update the win/loss record for each team in the `teams` table
+- update the shots and goals for each player in the `players` table
 
-### controlling the game stream
+## Other Notes
+### Controlling the game stream
 
-The game stream can be managed with `docker-compose` commands.
+The game stream can be managed with `docker-compose` commands:
 
-**Stop the game stream:**
-`$ docker-compose stop gamestream`
+- **Stop the game stream:** `$ docker-compose stop gamestream`
+- **View gamesteam activity** `$ docker-compose logs gamestream`
+- **Start the game stream:** `$ docker-compose start gamestream`
 
-**View gamesteam activity**
-`$ docker-compose logs gamestream`
 
-**Start the game stream:**
-`$ docker-compose start gamestream`
-
-NOTE: Every time you execute this command:
+NOTE: Every time you execute the `stop` command:
 - the database tables are reset back to their original state.
 - the live game stream located at `s3/gamestreams/gamestream.txt` restarts.
 - Anything you write to `s3/boxscores` will remain.
 
-Also when the game stream ends naturally, you may
