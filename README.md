@@ -98,6 +98,24 @@ After the game is complete, the table data in the database should be updated, ba
 - update the shots and goals for each player in the `players` table
 
 ## Other Notes
+
+### Setup
+You will need to install docker for your operating system. You can use either [Docker Desktop](https://www.docker.com/products/docker-desktop/) or [Rancher Desktop](https://rancherdesktop.io/)
+
+The tech test relies on being able to execute [docker-compose](https://docs.docker.com/compose/) commands from you computer. Docker compose is installed by default with both Docker Desktop and Rancher Desktop
+
+To start the services required to run the application:
+
+```
+$ docker-compose up
+```
+
+or for daemon mode
+
+```
+$ docker-compose up -d 
+```
+
 ### Controlling the game stream
 
 The game stream can be managed with `docker-compose` commands:
