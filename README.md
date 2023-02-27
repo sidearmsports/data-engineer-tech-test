@@ -116,6 +116,11 @@ or for daemon mode
 $ docker-compose up -d 
 ```
 
+You will not interact with the docker containers directly. You will present us with a solution using the tools you know that satisfy the needs. 
+
+**SqlServer will be exposed on your local computer on port 1433.  
+S3/Mino will be exposes on port 9000.**
+
 ### Controlling the game stream
 
 The game stream can be managed with `docker-compose` commands:
